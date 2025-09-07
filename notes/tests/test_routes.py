@@ -11,10 +11,16 @@ class RoutesTests(TestCase):
     """Тесты доступности маршрутов приложения notes."""
 
     def test_home_page_available_for_anonymous(self):
-        """Главная страница доступна анонимному пользователю."""
-        url = reverse('notes:home')
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
+        """Главная и auth-страницы (логин, регистрация) доступны анониму."""
+        urls = [
+            reverse('notes:home'),
+            reverse('users:login'),
+            reverse('users:signup'),
+        ]
+        for url in urls:
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, HTTPStatus.OK)
 
     @classmethod
     def setUpTestData(cls):
@@ -89,6 +95,12 @@ class RoutesTests(TestCase):
                 redirect_url = f'{login_url}?next={url}'
                 response = self.client.get(url)
                 self.assertRedirects(response, redirect_url)
+
+    def test_logout_page_available_for_authenticated_user(self):
+        """Страница выхода доступна авторизованному пользователю (POST)."""
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('users:logout'))
+        self.assertEqual(response.status_code, HTTPStatus.OK)
 
 
 if __name__ == '__main__':
