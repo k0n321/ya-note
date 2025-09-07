@@ -1,12 +1,13 @@
 import unittest
+from http import HTTPStatus
 
-from django.test import TestCase
 from django.contrib.auth import get_user_model
+from django.test import TestCase
 from django.urls import reverse
+from pytils.translit import slugify
+
 from notes.forms import WARNING
 from notes.models import Note
-from pytils.translit import slugify
-from http import HTTPStatus
 
 
 class LogicTests(TestCase):
