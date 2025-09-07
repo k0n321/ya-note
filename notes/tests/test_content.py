@@ -42,8 +42,8 @@ class ContentTests(TestCase):
         self.assertNotIn(self.note, object_list)
 
     def test_user_notes_list_excludes_other_users_notes(self):
-        """
-        В список заметок одного пользователя не попадают заметки другого.
+        """В список заметок одного
+        пользователя не попадают заметки другого.
         """
         # Создаём заметку для другого пользователя (reader).
         readers_note = Note.objects.create(

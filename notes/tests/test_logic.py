@@ -111,7 +111,8 @@ class LogicTests(TestCase):
 
     def test_empty_slug_is_generated_automatically(self):
         """
-        Если slug не передан, он формируется автоматически через slugify(title).
+        Если slug не передан, он формируется автоматически
+        через slugify(title).
         """
         self.client.force_login(self.user)
         data = self.form_data.copy()
@@ -132,13 +133,15 @@ class LogicTests(TestCase):
         response = self.client.post(self.url, data=dup_data)
         # Должна вернуться та же страница формы c ошибкой (без редиректа).
         self.assertEqual(response.status_code, 200)
-        # Проверяем ошибку формы на поле slug и что количество записей не изменилось.
+        # Проверяем ошибку формы на поле slug
+        # и что количество записей не изменилось.
         self.assertFormError(
             response.context['form'],
             'slug',
             dup_data['slug'] + WARNING,
         )
         self.assertEqual(Note.objects.count(), 1)
+
 
 if __name__ == '__main__':
     unittest.main()
