@@ -1,23 +1,18 @@
 import unittest
 from http import HTTPStatus
 
-from django.contrib.auth import get_user_model
-from django.test import TestCase
 from django.urls import reverse
 
 from notes.models import Note
+from notes.tests.test_content import BaseTestCase
 
 
-class RoutesTests(TestCase):
+class RoutesTests(BaseTestCase):
     """Тесты доступности маршрутов приложения notes."""
 
     def test_home_page_available_for_anonymous(self):
         """Главная и auth-страницы (логин, регистрация) доступны анониму."""
-        urls = [
-            reverse('notes:home'),
-            reverse('users:login'),
-            reverse('users:signup'),
-        ]
+        urls = [self.home_url, self.login_url, self.signup_url]
         for url in urls:
             with self.subTest(url=url):
                 response = self.client.get(url)
@@ -25,19 +20,13 @@ class RoutesTests(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        User = get_user_model()
-        cls.user = User.objects.create(
-            username='tester', email='tester@example.com'
-        )
-        cls.author = User.objects.create(
-            username='author', email='author@example.com'
-        )
-        cls.reader = User.objects.create(
-            username='reader', email='reader@example.com'
-        )
+        super().setUpTestData()
         cls.note = Note.objects.create(
             title='Author note', text='Some text', author=cls.author
         )
+        cls.detail_url = reverse('notes:detail', args=(cls.note.slug,))
+        cls.edit_url = reverse('notes:edit', args=(cls.note.slug,))
+        cls.delete_url = reverse('notes:delete', args=(cls.note.slug,))
 
     def test_authenticated_user_pages_available(self):
         """
@@ -48,15 +37,11 @@ class RoutesTests(TestCase):
         """
         self.client.force_login(self.user)
 
-        urls = [
-            reverse('notes:list'),
-            reverse('notes:success'),
-            reverse('notes:add'),
-        ]
+        urls = [self.list_url, self.success_url, self.add_url]
         for url in urls:
             with self.subTest(url=url):
                 response = self.client.get(url)
-                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.status_code, HTTPStatus.OK)
 
     def test_note_detail_edit_delete_access_control(self):
         """
@@ -69,9 +54,8 @@ class RoutesTests(TestCase):
         )
         for user, status in users_statuses:
             self.client.force_login(user)
-            for name in ('notes:detail', 'notes:delete', 'notes:edit'):
-                with self.subTest(user=user, name=name):
-                    url = reverse(name, args=(self.note.slug,))
+            for url in (self.detail_url, self.delete_url, self.edit_url):
+                with self.subTest(user=user, url=url):
                     response = self.client.get(url)
                     self.assertEqual(response.status_code, status)
 
@@ -80,27 +64,24 @@ class RoutesTests(TestCase):
         Анонимный пользователь перенаправляется на страницу логина со всех
         защищённых страниц: список, успех, добавление, detail, edit, delete.
         """
-        login_url = reverse('users:login')
-
-        names_with_args = (
-            ('notes:list', None),
-            ('notes:success', None),
-            ('notes:add', None),
-            ('notes:detail', (self.note.slug,)),
-            ('notes:edit', (self.note.slug,)),
-            ('notes:delete', (self.note.slug,)),
+        urls = (
+            self.list_url,
+            self.success_url,
+            self.add_url,
+            self.detail_url,
+            self.edit_url,
+            self.delete_url,
         )
-        for name, args in names_with_args:
-            with self.subTest(name=name):
-                url = reverse(name, args=args) if args else reverse(name)
-                redirect_url = f'{login_url}?next={url}'
+        for url in urls:
+            with self.subTest(url=url):
+                redirect_url = f'{self.login_url}?next={url}'
                 response = self.client.get(url)
                 self.assertRedirects(response, redirect_url)
 
     def test_logout_page_available_for_authenticated_user(self):
         """Страница выхода доступна авторизованному пользователю (POST)."""
         self.client.force_login(self.user)
-        response = self.client.post(reverse('users:logout'))
+        response = self.client.post(self.logout_url)
         self.assertEqual(response.status_code, HTTPStatus.OK)
 
 
