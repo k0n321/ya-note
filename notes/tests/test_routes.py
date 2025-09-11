@@ -1,10 +1,7 @@
 import unittest
 from http import HTTPStatus
 
-from django.urls import reverse
-
-from notes.models import Note
-from notes.tests.test_content import BaseTestCase
+from notes.tests.base import BaseTestCase
 
 
 class RoutesTests(BaseTestCase):
@@ -18,16 +15,6 @@ class RoutesTests(BaseTestCase):
                 response = self.client.get(url)
                 self.assertEqual(response.status_code, HTTPStatus.OK)
 
-    @classmethod
-    def setUpTestData(cls):
-        super().setUpTestData()
-        cls.note = Note.objects.create(
-            title='Author note', text='Some text', author=cls.author
-        )
-        cls.detail_url = reverse('notes:detail', args=(cls.note.slug,))
-        cls.edit_url = reverse('notes:edit', args=(cls.note.slug,))
-        cls.delete_url = reverse('notes:delete', args=(cls.note.slug,))
-
     def test_authenticated_user_pages_available(self):
         """
         Аутентифицированному пользователю доступны:
@@ -35,12 +22,10 @@ class RoutesTests(BaseTestCase):
         - страница успеха `notes:success`
         - страница добавления `notes:add`
         """
-        self.client.force_login(self.user)
-
         urls = [self.list_url, self.success_url, self.add_url]
         for url in urls:
             with self.subTest(url=url):
-                response = self.client.get(url)
+                response = self.user_client.get(url)
                 self.assertEqual(response.status_code, HTTPStatus.OK)
 
     def test_note_detail_edit_delete_access_control(self):
@@ -48,15 +33,14 @@ class RoutesTests(BaseTestCase):
         Доступ к страницам заметки (detail, delete, edit) есть только у автора.
         Другому пользователю возвращается 404.
         """
-        users_statuses = (
-            (self.author, HTTPStatus.OK),
-            (self.reader, HTTPStatus.NOT_FOUND),
+        clients_statuses = (
+            (self.author_client, HTTPStatus.OK),
+            (self.reader_client, HTTPStatus.NOT_FOUND),
         )
-        for user, status in users_statuses:
-            self.client.force_login(user)
+        for client, status in clients_statuses:
             for url in (self.detail_url, self.delete_url, self.edit_url):
-                with self.subTest(user=user, url=url):
-                    response = self.client.get(url)
+                with self.subTest(url=url):
+                    response = client.get(url)
                     self.assertEqual(response.status_code, status)
 
     def test_redirect_for_anonymous_client(self):
@@ -80,8 +64,7 @@ class RoutesTests(BaseTestCase):
 
     def test_logout_page_available_for_authenticated_user(self):
         """Страница выхода доступна авторизованному пользователю (POST)."""
-        self.client.force_login(self.user)
-        response = self.client.post(self.logout_url)
+        response = self.user_client.post(self.logout_url)
         self.assertEqual(response.status_code, HTTPStatus.OK)
 
 
