@@ -23,11 +23,10 @@ class LogicTests(BaseTestCase):
     def test_authenticated_user_can_create_note(self):
         """Залогиненный пользователь может создать заметку."""
         Note.objects.all().delete()
-        start_count = Note.objects.count()
         response = self.user_client.post(self.add_url, data=self.form_data)
-        self.assertEqual(Note.objects.count(), start_count + 1)
+        self.assertEqual(Note.objects.count(), 1)
         self.assertRedirects(response, self.success_url)
-        note = Note.objects.first()
+        note = Note.objects.get()
         self.assertIsNotNone(note)
         self.assertEqual(note.title, self.form_data['title'])
         self.assertEqual(note.text, self.form_data['text'])
@@ -39,8 +38,8 @@ class LogicTests(BaseTestCase):
         start_count = Note.objects.count()
         response = self.client.post(self.add_url, data=self.form_data)
         expected_redirect = f'{self.login_url}?next={self.add_url}'
-        self.assertRedirects(response, expected_redirect)
         self.assertEqual(Note.objects.count(), start_count)
+        self.assertRedirects(response, expected_redirect)
 
     def test_cannot_create_two_notes_with_same_slug(self):
         """Нельзя создать две заметки с одинаковым slug."""
@@ -51,27 +50,26 @@ class LogicTests(BaseTestCase):
             'slug': self.note.slug,
         }
         response = self.user_client.post(self.add_url, data=dup_data)
+        self.assertEqual(Note.objects.count(), start_count)
         self.assertEqual(response.status_code, HTTPStatus.OK)
         self.assertFormError(
             response.context['form'],
             'slug',
             dup_data['slug'] + WARNING,
         )
-        self.assertEqual(Note.objects.count(), start_count)
 
     def test_author_can_edit_own_note(self):
         """Пользователь-автор может редактировать свою заметку."""
         start_count = Note.objects.count()
-        note = self.note
         updated = {'title': 'Updated', 'text': 'New text', 'slug': 'updated'}
         response = self.author_client.post(self.edit_url, data=updated)
         self.assertEqual(Note.objects.count(), start_count)
         self.assertRedirects(response, self.success_url)
-        updated_note = Note.objects.get(id=note.id)
+        updated_note = Note.objects.get(id=self.note.id)
         self.assertEqual(updated_note.title, updated['title'])
         self.assertEqual(updated_note.text, updated['text'])
         self.assertEqual(updated_note.slug, updated['slug'])
-        self.assertEqual(updated_note.author, self.author)
+        self.assertEqual(updated_note.author, self.note.author)
 
     def test_author_can_delete_own_note(self):
         """Пользователь-автор может удалить свою заметку."""
@@ -83,31 +81,28 @@ class LogicTests(BaseTestCase):
     def test_user_cannot_edit_or_delete_others_note(self):
         """Пользователь не может редактировать или удалять чужие заметки."""
         start_count = Note.objects.count()
-        note = self.note
         self.client.force_login(self.reader)
 
         with self.subTest(action='edit as stranger'):
-            edit_url = self.edit_url
             updated = {'title': 'Hacker', 'text': 'Hack', 'slug': 'hacked'}
-            response = self.client.post(edit_url, data=updated)
+            response = self.client.post(self.edit_url, data=updated)
             self.assertEqual(
                 response.status_code, HTTPStatus.NOT_FOUND,
                 msg='Stranger should not edit others note',
             )
-            unchanged = Note.objects.get(id=note.id)
-            self.assertEqual(unchanged.title, note.title)
-            self.assertEqual(unchanged.text, note.text)
-            self.assertEqual(unchanged.slug, note.slug)
-            self.assertEqual(unchanged.author, note.author)
+            unchanged = Note.objects.get(id=self.note.id)
+            self.assertEqual(unchanged.title, self.note.title)
+            self.assertEqual(unchanged.text, self.note.text)
+            self.assertEqual(unchanged.slug, self.note.slug)
+            self.assertEqual(unchanged.author, self.note.author)
 
         with self.subTest(action='delete as stranger'):
-            delete_url = self.delete_url
-            response = self.client.post(delete_url)
+            response = self.client.post(self.delete_url)
+            self.assertEqual(Note.objects.count(), start_count)
             self.assertEqual(
                 response.status_code, HTTPStatus.NOT_FOUND,
                 msg='Stranger should not delete others note',
             )
-            self.assertEqual(Note.objects.count(), start_count)
 
     def test_empty_slug_is_generated_automatically(self):
         """
@@ -115,16 +110,15 @@ class LogicTests(BaseTestCase):
         через slugify(title).
         """
         Note.objects.all().delete()
-        start_count = Note.objects.count()
         data = self.form_data.copy()
         data.pop('slug')
         expected_slug = slugify(data['title'])
 
         with self.subTest(step='auto slug generation'):
             response = self.user_client.post(self.add_url, data=data)
-            self.assertEqual(Note.objects.count(), start_count + 1)
+            self.assertEqual(Note.objects.count(), 1)
             self.assertRedirects(response, self.success_url)
-            note = Note.objects.first()
+            note = Note.objects.get()
             self.assertIsNotNone(note)
             self.assertEqual(note.slug, expected_slug)
 
@@ -135,8 +129,8 @@ class LogicTests(BaseTestCase):
                 'slug': expected_slug,
             }
             response = self.user_client.post(self.add_url, data=dup_data)
+            self.assertEqual(Note.objects.count(), 1)
             self.assertEqual(response.status_code, HTTPStatus.OK)
-            self.assertEqual(Note.objects.count(), start_count + 1)
             self.assertFormError(
                 response.context['form'],
                 'slug',

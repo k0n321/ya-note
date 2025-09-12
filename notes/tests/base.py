@@ -1,7 +1,10 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase, Client
 from django.urls import reverse
+
 from notes.models import Note
+
+User = get_user_model()
 
 
 class BaseTestCase(TestCase):
@@ -9,7 +12,6 @@ class BaseTestCase(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        User = get_user_model()
         cls.user = User.objects.create(
             username='user', email='user@example.com'
         )
